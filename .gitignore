@@ -14,6 +14,7 @@ env/
 
 # macOS
 .DS_Store
+.vscode/
 
 # Secrets
 .env
@@ -22,3 +23,8 @@ env/
 # Datasets
 data/raw/
 data/processed/
+
+# Runtime outputs
+reports/prediction_logs.csv
+reports/seven_day_forecast.csv
+reports/shap_*.png
