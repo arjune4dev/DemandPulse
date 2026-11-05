@@ -31,4 +31,4 @@ EXPOSE 8000
 EXPOSE 8501
 EXPOSE 10000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/bin/sh", "/app/render_start.sh"]

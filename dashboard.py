@@ -25,24 +25,38 @@ chart_theme = plotly_theme(colors)
 
 # First-run setup for deployments where the source data is kept off GitHub.
 if df is None:
+    remote_storage = bool(os.environ.get("DATA_SERVICE_HOSTPORT"))
+    render_hosted = bool(os.environ.get("RENDER_SERVICE_ID"))
     page_header(
         "Set up your workspace",
         "Add the Rossmann source files once to unlock forecasts, explainability, and monitoring.",
         eyebrow="DEMANDPULSE / DATA SETUP",
     )
+    setup_note = (
+        "Both CSV files are saved to protected persistent storage and aren’t added to GitHub."
+        if remote_storage
+        else "The Rossmann CSVs are never stored in GitHub."
+    )
     st.markdown(
-        """
+        f"""
         <div class="dp-next-step">
           <span class="dp-next-step-icon">↥</span>
-          <div><strong>Your data stays in private storage</strong><br><span>Both CSV files are saved to protected persistent storage and aren’t added to the GitHub repository.</span></div>
+          <div><strong>{'Private data storage is connected' if remote_storage else 'Keep your data out of GitHub'}</strong><br><span>{setup_note}</span></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.markdown("")
+    if render_hosted and not remote_storage:
+        st.warning(
+            "This Render service is not connected to DemandPulse’s private data store yet. "
+            "Create the Blueprint from this repository so the dashboard, private API, "
+            "and persistent data service are configured together."
+        )
+        st.stop()
+
     upload_col, details_col = st.columns([1.2, 0.8], gap="large")
     with upload_col:
-        remote_storage = bool(os.environ.get("DATA_SERVICE_HOSTPORT"))
         setup_password = None
         if remote_storage:
             setup_password = st.text_input(
@@ -92,7 +106,7 @@ if df is None:
               <div class="dp-card-top"><span class="dp-card-icon">i</span><span class="dp-card-label">BEFORE YOU UPLOAD</span></div>
               <div class="dp-card-value">Two files, one time</div>
               <div class="dp-card-foot">Use the Rossmann Store Sales <code>train.csv</code> and <code>store.csv</code> files. Keep their original column headers.</div>
-              <div class="dp-card-meta">SAVED TO <span>PRIVATE DATA STORE</span></div>
+              <div class="dp-card-meta">SAVED TO <span>{'PRIVATE DATA STORE' if remote_storage else 'LOCAL DATA FOLDER'}</span></div>
             </div>
             """,
             unsafe_allow_html=True,
