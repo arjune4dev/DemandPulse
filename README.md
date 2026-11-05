@@ -39,9 +39,15 @@ The app requires the trained model and Rossmann `train.csv` and `store.csv` file
 
 ## Deploy to Render
 
-The repository includes a Render Blueprint in `render.yaml`. In Render, choose **New → Blueprint**, connect `arjune4dev/DemandPulse` on `main`, and review the proposed service before applying it. The Blueprint runs the dashboard and API behind one web service and attaches a 1 GB persistent disk for the Rossmann files and prediction log. After the first deploy, open the service URL and upload `train.csv` and `store.csv` on the setup screen; the files stay on the disk across deploys.
+The repository includes a Render Blueprint in `render.yaml`. In Render, choose **New → Blueprint**, connect `arjune4dev/DemandPulse` on `main`, and review the proposed services before applying it:
 
-This Render setup uses the paid Standard web service plan because the forecasting feature build needs more memory than Render's free plan provides. Render also requires a paid service for persistent disks. Review Render's current [compute pricing](https://render.com/pricing) and [persistent disk requirements](https://render.com/docs/disks) before applying the Blueprint. The local Docker Compose setup remains available at no additional hosting cost.
+- **Dashboard** — public Streamlit web service.
+- **API** — private FastAPI service, called by the dashboard over Render's private network.
+- **Data store** — private token-protected file service with a 1 GB persistent disk. The dashboard and API both fetch CSVs from this service; the CSVs are not stored in GitHub or copied into either app image.
+
+After the first deploy, copy the generated `DATA_UPLOAD_PASSWORD` from the dashboard service's Environment settings. Open the public dashboard URL, enter that password on the setup screen, and upload `train.csv` and `store.csv`. The data store keeps them across deploys. The Blueprint generates a separate shared access token for service-to-service access; it is never entered in the browser.
+
+This configuration uses paid compute: two Standard services and one Starter service, plus a 1 GB persistent disk. At current listed rates that is approximately **$57.25/month**, before taxes or other usage. Render requires paid compute for persistent disks. Review [Render compute and disk pricing](https://render.com/pricing) and [persistent disk requirements](https://render.com/docs/disks) before applying the Blueprint. The local Docker Compose setup remains available at no additional hosting cost.
 
 ## Product areas
 

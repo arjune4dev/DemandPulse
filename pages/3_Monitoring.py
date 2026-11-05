@@ -5,6 +5,7 @@ import numpy as np
 import plotly.express as px
 from pathlib import Path
 from src.ui import setup_ui, page_header, section_header, plotly_theme
+from src.api_client import get_prediction_logs
 
 from src.monitoring import LOG_PATH
 
@@ -24,10 +25,13 @@ page_header(
 
 @st.cache_data(ttl=10)
 def load_logs():
-    if not Path(LOG_PATH).exists():
+    remote_logs = get_prediction_logs()
+    if remote_logs is not None:
+        data = remote_logs
+    elif Path(LOG_PATH).exists():
+        data = pd.read_csv(LOG_PATH)
+    else:
         return pd.DataFrame()
-
-    data = pd.read_csv(LOG_PATH)
 
     if data.empty:
         return data

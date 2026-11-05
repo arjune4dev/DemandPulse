@@ -1,13 +1,16 @@
 from datetime import date
+import hmac
 import importlib
+import os
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.predictor import predict_seven_days, df
+from src.predictor import df
 import src.predictor as predictor_module
-from src.feature_builder import TRAIN_PATH, STORE_PATH
+from src.feature_builder import store_uploaded_datasets
+from src.api_client import predict_forecast
 from src.inventory import simulate_inventory_risk
 from src.ui import setup_ui, page_header, section_header, plotly_theme
 
@@ -31,7 +34,7 @@ if df is None:
         """
         <div class="dp-next-step">
           <span class="dp-next-step-icon">↥</span>
-          <div><strong>Your data stays with this deployment</strong><br><span>Both CSV files are saved to the app’s data volume and aren’t added to the GitHub repository.</span></div>
+          <div><strong>Your data stays in private storage</strong><br><span>Both CSV files are saved to protected persistent storage and aren’t added to the GitHub repository.</span></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -39,6 +42,14 @@ if df is None:
     st.markdown("")
     upload_col, details_col = st.columns([1.2, 0.8], gap="large")
     with upload_col:
+        remote_storage = bool(os.environ.get("DATA_SERVICE_HOSTPORT"))
+        setup_password = None
+        if remote_storage:
+            setup_password = st.text_input(
+                "Private data setup password",
+                type="password",
+                help="Find DATA_UPLOAD_PASSWORD in the Render dashboard service's Environment settings.",
+            )
         uploaded_train = st.file_uploader(
             "Rossmann train.csv",
             type=["csv"],
@@ -49,17 +60,26 @@ if df is None:
             type=["csv"],
             help="Store metadata used by the forecasting model.",
         )
+        files_ready = bool(uploaded_train and uploaded_store)
+        password_ready = not remote_storage or bool(setup_password)
         if st.button(
             "Save data and prepare workspace",
             type="primary",
             use_container_width=True,
-            disabled=not (uploaded_train and uploaded_store),
+            disabled=not (files_ready and password_ready),
         ):
             try:
+                if remote_storage and not hmac.compare_digest(
+                    setup_password,
+                    os.environ.get("DATA_UPLOAD_PASSWORD", ""),
+                ):
+                    st.error("That data setup password is incorrect.")
+                    st.stop()
                 with st.spinner("Saving files and preparing store features…"):
-                    TRAIN_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    TRAIN_PATH.write_bytes(uploaded_train.getvalue())
-                    STORE_PATH.write_bytes(uploaded_store.getvalue())
+                    store_uploaded_datasets(
+                        uploaded_train.getvalue(),
+                        uploaded_store.getvalue(),
+                    )
                     importlib.reload(predictor_module)
                 st.success("Data loaded. Opening your forecast workspace…")
                 st.rerun()
@@ -72,7 +92,7 @@ if df is None:
               <div class="dp-card-top"><span class="dp-card-icon">i</span><span class="dp-card-label">BEFORE YOU UPLOAD</span></div>
               <div class="dp-card-value">Two files, one time</div>
               <div class="dp-card-foot">Use the Rossmann Store Sales <code>train.csv</code> and <code>store.csv</code> files. Keep their original column headers.</div>
-              <div class="dp-card-meta">SAVED TO <span>{TRAIN_PATH.parent}</span></div>
+              <div class="dp-card-meta">SAVED TO <span>PRIVATE DATA STORE</span></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -185,7 +205,7 @@ if generate_button:
     try:
         with st.spinner("Generating forecast and inventory scenario..."):
 
-            predictions = predict_seven_days(
+            predictions = predict_forecast(
                 store_id=selected_store,
                 origin_date=selected_date,
             )

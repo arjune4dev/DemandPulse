@@ -1,10 +1,12 @@
 
 from pathlib import Path
 import os
+from io import BytesIO
 
 import pandas as pd
 import numpy as np
 import joblib
+import requests
 
 
 # ==================================================
@@ -65,12 +67,34 @@ FEATURE_COLUMNS = (
 
 def load_data():
 
-    train = pd.read_csv(
-        TRAIN_PATH,
-        low_memory=False
-    )
+    data_service = os.environ.get("DATA_SERVICE_HOSTPORT")
+    if data_service:
+        token = os.environ.get("DATA_SERVICE_TOKEN", "")
+        headers = {"X-Data-Token": token}
 
-    store = pd.read_csv(STORE_PATH)
+        def read_remote_csv(filename, **kwargs):
+            try:
+                response = requests.get(
+                    f"http://{data_service}/files/{filename}",
+                    headers=headers,
+                    timeout=(5, 180),
+                )
+            except requests.RequestException as error:
+                raise FileNotFoundError(
+                    "Private dataset storage is not reachable yet."
+                ) from error
+            if response.status_code == 404:
+                raise FileNotFoundError(
+                    f"Dataset file {filename} is not uploaded yet."
+                )
+            response.raise_for_status()
+            return pd.read_csv(BytesIO(response.content), **kwargs)
+
+        train = read_remote_csv("train.csv", low_memory=False)
+        store = read_remote_csv("store.csv")
+    else:
+        train = pd.read_csv(TRAIN_PATH, low_memory=False)
+        store = pd.read_csv(STORE_PATH)
 
     train["Date"] = pd.to_datetime(train["Date"])
 
@@ -86,6 +110,29 @@ def load_data():
     ).reset_index(drop=True)
 
     return df
+
+
+def store_uploaded_datasets(train_bytes, store_bytes):
+    """Save uploaded CSV bytes locally or in the protected Render data service."""
+    data_service = os.environ.get("DATA_SERVICE_HOSTPORT")
+    if data_service:
+        token = os.environ.get("DATA_SERVICE_TOKEN", "")
+        headers = {"X-Data-Token": token, "Content-Type": "text/csv"}
+        for filename, contents in (
+            ("train.csv", train_bytes),
+            ("store.csv", store_bytes),
+        ):
+            response = requests.put(
+                f"http://{data_service}/files/{filename}",
+                headers=headers,
+                data=contents,
+                timeout=300,
+            )
+            response.raise_for_status()
+    else:
+        TRAIN_PATH.parent.mkdir(parents=True, exist_ok=True)
+        TRAIN_PATH.write_bytes(train_bytes)
+        STORE_PATH.write_bytes(store_bytes)
 
 
 # ==================================================

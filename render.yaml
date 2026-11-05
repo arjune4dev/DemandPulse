@@ -1,21 +1,68 @@
+envVarGroups:
+  - name: demandpulse-private-storage
+    envVars:
+      - key: DATA_SERVICE_TOKEN
+        generateValue: true
+
 services:
+  # Private file service: only the API and dashboard can reach it.
+  - type: pserv
+    name: demandpulse-data
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./deploy/data.Dockerfile
+    dockerContext: .
+    envVars:
+      - fromGroup: demandpulse-private-storage
+      - key: DEMANDPULSE_DATA_DIR
+        value: /var/data
+    disk:
+      name: demandpulse-datasets
+      mountPath: /var/data
+      sizeGB: 1
+
+  # Private prediction API: callers must be on this Render private network.
+  - type: pserv
+    name: demandpulse-api
+    runtime: docker
+    plan: standard
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerCommand: uvicorn src.main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+      - key: DATA_SERVICE_HOSTPORT
+        fromService:
+          name: demandpulse-data
+          type: pserv
+          property: hostport
+      - fromGroup: demandpulse-private-storage
+
+  # Public Streamlit frontend, which calls the API over Render private networking.
   - type: web
-    name: demandpulse
+    name: demandpulse-dashboard
     runtime: docker
     plan: standard
     region: singapore
     dockerfilePath: ./Dockerfile
     dockerCommand: /bin/sh /app/render_start.sh
-    healthCheckPath: /health
+    healthCheckPath: /_stcore/health
     autoDeployTrigger: commit
     envVars:
       - key: PYTHONPATH
         value: /app
-      - key: DEMANDPULSE_DATA_DIR
-        value: /var/data/raw
-      - key: DEMANDPULSE_REPORTS_DIR
-        value: /var/data/reports
-    disk:
-      name: demandpulse-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: DATA_SERVICE_HOSTPORT
+        fromService:
+          name: demandpulse-data
+          type: pserv
+          property: hostport
+      - key: API_SERVICE_HOSTPORT
+        fromService:
+          name: demandpulse-api
+          type: pserv
+          property: hostport
+      - fromGroup: demandpulse-private-storage
+      - key: DATA_UPLOAD_PASSWORD
+        generateValue: true
