@@ -1,11 +1,15 @@
 
 from pathlib import Path
+import os
 
 import numpy as np
 import pandas as pd
 
 
-LOG_PATH = Path("reports/prediction_logs.csv")
+REPORTS_DIR = Path(
+    os.environ.get("DEMANDPULSE_REPORTS_DIR", "reports")
+)
+LOG_PATH = REPORTS_DIR / "prediction_logs.csv"
 
 LOG_COLUMNS = [
     "forecast_generated_at",

@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import os
 
 import pandas as pd
 import numpy as np
@@ -12,8 +13,11 @@ import joblib
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-TRAIN_PATH = PROJECT_ROOT / "data" / "raw" / "train.csv"
-STORE_PATH = PROJECT_ROOT / "data" / "raw" / "store.csv"
+DATA_DIR = Path(
+    os.environ.get("DEMANDPULSE_DATA_DIR", PROJECT_ROOT / "data" / "raw")
+)
+TRAIN_PATH = DATA_DIR / "train.csv"
+STORE_PATH = DATA_DIR / "store.csv"
 MODEL_PATH = PROJECT_ROOT / "models" / "demandpulse_pipeline.pkl"
 
 

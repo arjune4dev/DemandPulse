@@ -44,13 +44,24 @@ print("Model loaded successfully!")
 
 print("Loading Rossmann dataset...")
 
-raw_df = load_data()
+try:
+    raw_df = load_data()
+    print("Generating historical features...")
+    df = build_features(raw_df)
+    print("Feature generation completed!")
+except FileNotFoundError:
+    # Keep the web app available so a first-time deployment can accept
+    # the local Rossmann CSVs through its setup screen.
+    df = None
+    print("Rossmann data is not installed yet.")
 
-print("Generating historical features...")
 
-df = build_features(raw_df)
-
-print("Feature generation completed!")
+def _ensure_dataset_loaded():
+    global df
+    if df is None:
+        raw_df = load_data()
+        df = build_features(raw_df)
+    return df
 
 
 # ==================================================
@@ -59,6 +70,14 @@ print("Feature generation completed!")
 
 def predict_seven_days(store_id, origin_date):
 
+    try:
+        forecast_data = _ensure_dataset_loaded()
+    except FileNotFoundError as error:
+        raise ValueError(
+            "Rossmann data is missing. Upload train.csv and store.csv "
+            "from the DemandPulse dashboard first."
+        ) from error
+
     store_id = str(store_id)
 
     origin_date = pd.Timestamp(origin_date)
@@ -66,7 +85,7 @@ def predict_seven_days(store_id, origin_date):
     # Prepare seven-day forecast features
 
     forecast_df, X_forecast = get_seven_day_features(
-        df,
+        forecast_data,
         store_id,
         origin_date
     )

@@ -33,6 +33,10 @@ page_header(
     eyebrow="DEMANDPULSE / MODEL INSIGHTS",
 )
 
+if df is None:
+    st.info("Upload the Rossmann train.csv and store.csv files from the Overview page to enable model explanations.")
+    st.stop()
+
 
 # ============================================================
 # 3. GLOBAL EXPLAINABILITY

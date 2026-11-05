@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: demandpulse
+    runtime: docker
+    plan: standard
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerCommand: /bin/sh /app/render_start.sh
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+      - key: DEMANDPULSE_DATA_DIR
+        value: /var/data/raw
+      - key: DEMANDPULSE_REPORTS_DIR
+        value: /var/data/reports
+    disk:
+      name: demandpulse-data
+      mountPath: /var/data
+      sizeGB: 1
